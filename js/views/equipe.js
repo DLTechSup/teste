@@ -11,7 +11,7 @@ export default {
         <form class="painel-corpo grade" id="eq-form">
           <label class="campo"><span>Nome</span><input class="inp" name="nome" required></label>
           <label class="campo"><span>E-mail</span><input class="inp" type="email" name="email" required></label>
-          <label class="campo"><span>Senha inicial</span><input class="inp" name="senha" minlength="6" required><small>Mínimo 6 caracteres. Passe para a pessoa; ela entra como Loja e você pode promover a Administrador.</small></label>
+          <label class="campo"><span>Senha inicial</span><input class="inp" name="senha" minlength="6" required><small>Mínimo 6 caracteres. A pessoa é criada sem acesso; escolha "Administrador" na lista para liberar.</small></label>
           <button class="btn pri" type="submit">${icone('mais')} Criar acesso</button>
         </form></section></div>`;
   },
@@ -31,7 +31,7 @@ export default {
             <div class="item-acoes">
               <label class="sr" for="papel-${p.id}">Papel de ${p.nome}</label>
               <select class="inp" style="height:32px;width:auto" id="papel-${p.id}" data-papel="${p.id}" ${p.id === ctx.perfil.id ? raw('disabled') : ''}>
-                <option value="loja" ${p.papel === 'loja' ? raw('selected') : ''}>Loja</option>
+                <option value="loja" ${p.papel === 'loja' ? raw('selected') : ''}>Sem acesso</option>
                 <option value="admin" ${p.papel === 'admin' ? raw('selected') : ''}>Administrador</option></select>
               ${p.id === ctx.perfil.id ? '' : html`<button class="btn peq" data-ativo="${p.id}" data-valor="${!p.ativo}">${p.ativo ? 'Desativar' : 'Reativar'}</button>`}
             </div></li>`)}</ul>`);

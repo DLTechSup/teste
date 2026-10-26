@@ -69,3 +69,13 @@ test('preço aceita número e texto com vírgula', () => {
   assert.equal(lerItem(row({ preco: '1.299,90' })).preco, 1299.9);
   assert.equal(lerItem(row({})).preco, null);
 });
+
+test('escritório marca "somente capa" ou "nenhuma foto": vai para pendências, não para a lista de códigos', async () => {
+  const { semCodigo } = await import('../js/regras.js');
+  for (const st of ['capa', 'nenhuma', 'faltam']) {
+    const i = lerItem(row({ marca: 'Moleca', ref: '1', fotos: FOTO, statusFotos: st, status: 'pendente' }));
+    assert.equal(aguardandoCodigo(i), false);
+    assert.equal(pendenteSemCodigo(i), true);
+    assert.equal(semCodigo(i), true); // admin continua vendo como "enviado sem código"
+  }
+});

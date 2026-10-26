@@ -105,19 +105,18 @@ create policy "calcados: envio logado"
 -- =====================================================================
 
 -- =====================================================================
--- 5) (OPCIONAL — LEIA ANTES) BLINDAR A TABELA ITENS
--- Hoje a tabela "itens" aceita leitura e escrita com a chave pública,
--- então quem tiver a chave consegue alterar dados sem login.
--- O bloco abaixo exige login para ler/escrever e PROÍBE delete para todos.
--- ATENÇÃO: se o seu site antigo acessa o banco sem login, ele vai parar
--- de funcionar depois disso. Só execute quando migrar tudo para o ShoeFlow 2.
+-- 5) (RECOMENDADO) PROIBIR APAGAR LINHAS DA TABELA ITENS
+-- A página da loja funciona sem login, então a leitura e a escrita
+-- continuam liberadas. Este bloco só impede que QUALQUER pessoa ou
+-- sistema (inclusive o site antigo) apague linhas da tabela "itens".
+-- Não altera nenhum dado. Tire os traços do início das linhas e execute.
 --
 -- alter table public.itens enable row level security;
--- drop policy if exists "itens: ler logado" on public.itens;
--- create policy "itens: ler logado" on public.itens for select to authenticated using (true);
--- drop policy if exists "itens: inserir logado" on public.itens;
--- create policy "itens: inserir logado" on public.itens for insert to authenticated with check (true);
--- drop policy if exists "itens: alterar logado" on public.itens;
--- create policy "itens: alterar logado" on public.itens for update to authenticated using (true) with check (true);
+-- drop policy if exists "itens: ler" on public.itens;
+-- create policy "itens: ler" on public.itens for select using (true);
+-- drop policy if exists "itens: inserir" on public.itens;
+-- create policy "itens: inserir" on public.itens for insert with check (true);
+-- drop policy if exists "itens: alterar" on public.itens;
+-- create policy "itens: alterar" on public.itens for update using (true) with check (true);
 -- (Sem política de DELETE = ninguém consegue apagar linhas.)
 -- =====================================================================

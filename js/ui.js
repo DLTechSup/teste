@@ -41,10 +41,15 @@ const P = {
   loja: '<path d="M3 9 4.5 4h15L21 9M3 9v11h18V9M3 9h18M9 20v-6h6v6"/>',
   restaurar: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
   sino: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+  escudo: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  copiar: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
   upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
 };
 export const icone = (n, rot) =>
   raw(`<svg class="i" viewBox="0 0 24 24" ${rot ? `role="img" aria-label="${esc(rot)}"` : 'aria-hidden="true"'}>${P[n] || ''}</svg>`);
+
+// Logo da loja nas versões para fundo claro e escuro (o CSS mostra a certa)
+export const logo = (classe = '') => raw(`<span class="logo-loja ${classe}"><img class="l-claro" src="img/logo.png" alt="Calçados 24h"><img class="l-escuro" src="img/logo-escuro.png" alt="" aria-hidden="true"></span>`);
 
 export const iniciais = (s) => (s || '?').trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 
@@ -115,16 +120,47 @@ export function confirmar(titulo, texto, botao = 'Confirmar') {
   });
 }
 
-export function ampliar(src) {
-  if (!src) return;
-  const z = Object.assign(document.createElement('div'), { className: 'zoom', role: 'dialog', ariaLabel: 'Foto ampliada', tabIndex: -1 });
-  z.innerHTML = String(html`<img src="${src}" alt="Foto ampliada">`);
-  const fechar = () => { z.remove(); document.removeEventListener('keydown', k); };
-  const k = (e) => e.key === 'Escape' && fechar();
-  z.onclick = fechar;
+// Visualizador de fotos: clique fora, X ou Esc fecha; setas trocam a foto
+export function ampliar(fotos, inicio = 0, legenda = '') {
+  const lista = (Array.isArray(fotos) ? fotos : [fotos]).filter(Boolean);
+  if (!lista.length) return;
+  let n = Math.max(0, lista.indexOf(inicio) >= 0 ? lista.indexOf(inicio) : inicio | 0);
+  const anterior = document.activeElement;
+  const z = Object.assign(document.createElement('div'), { className: 'zoom', tabIndex: -1 });
+  z.setAttribute('role', 'dialog'); z.setAttribute('aria-modal', 'true'); z.setAttribute('aria-label', 'Foto ampliada');
+  const varias = lista.length > 1;
+  z.innerHTML = String(html`<figure>
+      <img alt="${legenda || 'Foto ampliada'}">
+      <figcaption><span>${legenda}</span>${varias ? html`<span class="mono" data-pos></span>` : ''}</figcaption>
+    </figure>
+    <button class="zoom-btn zoom-x" aria-label="Fechar">${icone('x')}</button>
+    ${varias ? html`<button class="zoom-btn zoom-ant" aria-label="Foto anterior">${icone('voltar')}</button><button class="zoom-btn zoom-prox" aria-label="Próxima foto">${icone('seta')}</button>` : ''}`);
+  const img = z.querySelector('img');
+  const mostrar = () => {
+    img.src = lista[n];
+    const pos = z.querySelector('[data-pos]'); if (pos) pos.textContent = `${n + 1} / ${lista.length}`;
+    if (!semMovimento()) img.animate([{ opacity: 0, scale: 0.97 }, { opacity: 1, scale: 1 }], { duration: 220, easing: 'cubic-bezier(.22,1,.36,1)' });
+  };
+  const ir = (d) => { n = (n + d + lista.length) % lista.length; mostrar(); };
+  const fechar = () => { z.remove(); document.removeEventListener('keydown', k); anterior?.focus?.({ preventScroll: true }); };
+  const k = (e) => {
+    if (e.key === 'Escape') fechar();
+    if (varias && e.key === 'ArrowRight') ir(1);
+    if (varias && e.key === 'ArrowLeft') ir(-1);
+  };
+  z.onclick = (e) => {
+    if (e.target.closest('.zoom-prox')) return ir(1);
+    if (e.target.closest('.zoom-ant')) return ir(-1);
+    if (e.target === z || e.target.closest('.zoom-x')) fechar();
+  };
+  // Arrastar para o lado no celular
+  let x0 = null;
+  z.addEventListener('touchstart', (e) => (x0 = e.touches[0].clientX), { passive: true });
+  z.addEventListener('touchend', (e) => { if (varias && x0 !== null) { const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 50) ir(dx < 0 ? 1 : -1); } x0 = null; });
   document.addEventListener('keydown', k);
   document.body.append(z);
-  z.focus();
+  mostrar();
+  z.querySelector('.zoom-x').focus();
 }
 
 // ---------- Botão ocupado ----------

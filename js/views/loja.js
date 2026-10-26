@@ -1,114 +1,180 @@
-// Telas da loja: enviar códigos por marca e responder pendências
+// Página pública da loja (sem login): todos os modelos sem código, cada um com foto, código e observação
 import { html, raw, icone, aviso, erro, recolher, ampliar, tempo } from '../ui.js';
-import { aguardandoCodigo, temPendencia, porMarca, ativo, STATUS_FOTOS } from '../regras.js';
-import { miniatura, vazioBloco } from '../componentes.js';
+import { aguardandoCodigo, pendenteComCodigo, pendenteSemCodigo, porMarca, STATUS_FOTOS, temPendencia, reais } from '../regras.js';
+import { vazioBloco } from '../componentes.js';
 
-let busca = '';
+const filtro = { marca: '', q: '' };
 
-function cartaoMarca(marca, itens, todos, i) {
-  const daMarca = todos.filter((x) => ativo(x) && x.marca === marca && x.etapa !== 'feito');
-  const feitos = daMarca.filter((x) => x.etapa === 'recebido').length;
-  const p = daMarca.length ? Math.round((feitos / daMarca.length) * 100) : 0;
-  return html`<a class="painel marca-card" data-filtro="${`${marca} ${itens.map((x) => x.ref).join(' ')}`.toLowerCase()}" href="#/loja/${encodeURIComponent(marca)}" style="--i:${i};text-decoration:none">
-    <div class="linha-flex" style="justify-content:space-between;flex-wrap:nowrap">
-      <div><h3>${marca}</h3><span class="muted" style="font-size:13px">${itens.length} ${itens.length === 1 ? 'referência aguardando' : 'referências aguardando'}</span></div>
-      <span class="anel" style="--p:${p}" title="${p}% da marca já com código"><span>${p}%</span></span>
+function cartao(i, j, resposta = false) {
+  const pend = temPendencia(i);
+  return html`<article class="painel modelo" data-id="${i.id}" data-marca="${i.marca}" data-busca="${`${i.marca} ${i.ref}`.toLowerCase()}" style="--i:${j}">
+    <button type="button" class="modelo-foto" data-zoom="${i.id}" aria-label="${i.foto ? `Ampliar foto de ${i.marca} ${i.ref}` : `${i.ref} sem foto`}" ${i.foto ? '' : raw('disabled')}>
+      ${i.foto ? html`<img src="${i.foto}" alt="${i.marca} ${i.ref}" loading="lazy"><span class="ver-foto">${icone('busca')} ${i.fotos.length > 1 ? `Ver ${i.fotos.length} fotos` : 'Ver foto'}</span>`
+        : html`<span class="sem-foto">${icone('foto')}<span>Sem foto</span></span>`}
+    </button>
+    <div class="modelo-corpo">
+      <header>
+        <div><span class="modelo-marca">${i.marca}</span><h3 class="mono">${i.ref}</h3>${i.modelo ? html`<span class="muted" style="font-size:13px">${i.modelo}</span>` : ''}</div>
+        <div class="linha-flex">${pend ? html`<span class="selo pend">${STATUS_FOTOS[i.statusFotos]}</span>` : html`<span class="selo wait">Aguardando código</span>`}${i.codigo ? html`<span class="codigo" title="Código já enviado">${i.codigo}</span>` : ''}${i.preco ? html`<span class="preco" title="Valor no Bling">${reais(i.preco)}</span>` : ''}</div>
+      </header>
+      <div class="item-meta"><span>Cadastrado ${tempo(i.criadoEm)}</span>${i.faltamCores ? html`<span>Faltam fotos: ${i.faltamCores}</span>` : ''}</div>
+      ${i.obs ? html`<p class="nota-escritorio"><b>Escritório:</b> ${i.obs}</p>` : ''}
+      ${i.obsLoja ? html`<p class="nota-loja"><b>Sua observação:</b> ${i.obsLoja}</p>` : ''}
+      <form data-form="${i.id}" class="modelo-form" novalidate>
+        ${resposta ? '' : html`<label class="campo"><span>Código</span>
+          <input class="inp mono" name="codigo" autocomplete="off" enterkeyhint="send" placeholder="Digite o código"></label>`}
+        <label class="campo ${resposta ? 'largo' : ''}"><span>Observação</span>
+          <textarea class="inp" name="obs" rows="2" placeholder="${resposta ? 'Ex.: as fotos da cor preta vão amanhã' : 'Opcional — ex.: só tem numeração 35 a 37'}"></textarea></label>
+        <div class="modelo-rodape">
+          ${resposta || pend ? '' : html`<label class="check-simples"><input type="checkbox" name="faltam"> Faltam fotos deste modelo</label>`}
+          <button class="btn pri" type="submit">${icone('enviar')} ${resposta ? 'Enviar observação' : 'Enviar'}</button>
+        </div>
+      </form>
     </div>
-    <div class="linha-flex" style="justify-content:space-between">
-      <span class="fotos">${itens.slice(0, 5).map((x) => miniatura(x))}</span>
-      <span class="btn fant peq">Abrir ${icone('seta')}</span>
-    </div></a>`;
+  </article>`;
 }
 
-function linhaCodigo(i, j, pendencia = false) {
-  return html`<li class="entrada-codigo" data-id="${i.id}" style="--i:${j}">
-    <button type="button" class="thumb" data-zoom="${i.foto}" aria-label="Ampliar foto de ${i.ref}" ${i.foto ? '' : raw('disabled')}>${i.foto ? html`<img src="${i.foto}" alt="">` : icone('foto')}</button>
-    <div class="item-info">
-      <div class="item-titulo"><b style="font-size:16px">${i.ref}</b>${pendencia ? html`<span class="selo pend">${STATUS_FOTOS[i.statusFotos]}</span>` : ''}${i.codigo ? html`<span class="codigo">${i.codigo}</span>` : ''}</div>
-      <div class="item-meta"><span>${i.marca}</span><span>enviado ${tempo(i.criadoEm)}</span>${i.faltamCores ? html`<span>Faltam: ${i.faltamCores}</span>` : ''}</div>
-      ${i.obs ? html`<div class="item-nota" style="white-space:normal">Escritório: ${i.obs}</div>` : ''}
-      ${i.obsLoja ? html`<div class="item-nota loja" style="white-space:normal">Sua resposta: ${i.obsLoja}</div>` : ''}
+function barraFiltros(itens) {
+  const marcas = porMarca(itens);
+  return html`<div class="loja-filtros">
+    <div class="chips" role="group" aria-label="Filtrar por marca">
+      <button class="chip" data-marca="" aria-pressed="${!filtro.marca}">Todas <span>${itens.length}</span></button>
+      ${[...marcas].map(([m, its]) => html`<button class="chip" data-marca="${m}" aria-pressed="${filtro.marca === m}">${m} <span>${its.length}</span></button>`)}
     </div>
-    <form data-form="${i.id}" novalidate>
-      ${pendencia && i.codigo ? '' : html`<div class="linha-flex" style="flex-wrap:nowrap">
-        <label class="sr" for="cod-${i.id}">Código de ${i.ref}</label>
-        <input class="inp mono" id="cod-${i.id}" name="codigo" placeholder="Código" autocomplete="off" inputmode="text" enterkeyhint="send">
-        <button class="btn pri" type="submit">${icone('enviar')}<span class="sr">Enviar</span></button></div>`}
-      <details ${pendencia ? raw('open') : ''}><summary class="muted" style="font-size:12px;cursor:pointer">${pendencia ? 'Responder ao escritório' : 'Observação ou falta de fotos'}</summary>
-        <div class="grade" style="gap:8px;margin-top:8px">
-          <textarea class="inp" name="obs" style="min-height:60px" placeholder="Ex.: fotos da cor preta vão amanhã"></textarea>
-          ${pendencia ? '' : html`<label class="check" style="font-size:13px"><input type="checkbox" name="faltam"> Faltam fotos deste modelo</label>`}
-          ${pendencia && i.codigo ? html`<button class="btn pri" type="submit">${icone('enviar')} Enviar resposta</button>` : ''}
-        </div></details>
-    </form></li>`;
+    <label class="busca">${icone('busca')}<span class="sr">Buscar referência</span><input class="inp" type="search" id="lj-busca" value="${filtro.q}" placeholder="Buscar referência"></label>
+  </div>`;
 }
+
+// Referências agrupadas por marca: cada marca é um bloco com cabeçalho e contagem
+const qtd = (n) => `${n} ${n === 1 ? 'referência' : 'referências'}`;
+function blocos(itens, resposta) {
+  let g = 0;
+  return html`<div class="grupos-loja cascata">${[...porMarca(itens)].map(([marca, its]) => html`
+    <section class="grupo-loja" data-grupo="${marca}" style="--i:${g++}" aria-label="${marca}">
+      <header class="grupo-cab"><h2>${marca}</h2><span class="grupo-n" data-restam="${its.length}">${qtd(its.length)}</span></header>
+      <div class="modelos">${its.map((i, j) => cartao(i, j, resposta))}</div>
+    </section>`)}</div>`;
+}
+const nada = () => html`<div class="painel vazio" id="lj-nada" hidden>${icone('busca')}<h3>Nenhum modelo encontrado</h3><p>Tente outra marca ou referência.</p></div>`;
+function lista(itens, resposta) {
+  return html`${blocos(itens, resposta)}${nada()}`;
+}
+
+const ordenar = (a, b) => a.marca.localeCompare(b.marca, 'pt-BR') || a.ref.localeCompare(b.ref, 'pt-BR');
 
 const codigos = {
-  titulo: (ctx, [marca]) => (marca ? marca : 'Enviar códigos'),
-  render(ctx, [marca]) {
-    const itens = ctx.itens.filter(aguardandoCodigo);
-    if (!marca) {
-      const grupos = porMarca(itens);
-      return html`<div class="barra"><p class="muted" style="margin:0">Escolha a marca, confira a foto e digite o código. <b>Enter</b> envia e passa para o próximo.</p><span class="espaco"></span>
-        <label class="busca">${icone('busca')}<span class="sr">Buscar</span><input class="inp" type="search" id="lj-busca" value="${busca}" placeholder="Buscar marca ou referência"></label></div>
-        ${grupos.size ? html`<div class="marcas-loja cascata">${[...grupos].map(([m, its], i) => cartaoMarca(m, its, ctx.itens, i))}</div>`
-          : vazioBloco('feito', 'Nenhum código pendente', 'Quando o escritório cadastrar novos calçados, eles aparecem aqui na hora.')}`;
-    }
-    const daMarca = itens.filter((i) => i.marca === marca);
-    return html`<div class="barra"><a class="btn" href="#/loja">${icone('voltar')} Marcas</a><span class="muted">${daMarca.length} ${daMarca.length === 1 ? 'referência' : 'referências'} aguardando</span></div>
-      ${daMarca.length ? html`<section class="painel"><ul class="lista cascata">${daMarca.map((i, j) => linhaCodigo(i, j))}</ul></section>`
-        : html`<div class="painel vazio">${icone('feito')}<h3>Marca concluída</h3><p>Todos os códigos de ${marca} foram enviados.</p><p style="margin-top:12px"><a class="btn pri" href="#/loja">Voltar às marcas</a></p></div>`}`;
+  titulo: () => 'Enviar códigos',
+  render(ctx) {
+    const itens = ctx.itens.filter(aguardandoCodigo).sort(ordenar);
+    if (!itens.length) return vazioBloco('feito', 'Todos os códigos foram enviados', 'Quando o escritório cadastrar novos modelos, eles aparecem aqui na hora.');
+    return html`<div class="loja-intro"><h1>Modelos aguardando código</h1><p class="muted">As referências estão agrupadas por marca. Digite o código e aperte <b>Enter</b>: envia e já vai para a próxima referência da mesma marca.</p></div>
+      ${barraFiltros(itens)}${lista(itens, false)}`;
   },
-  montar(el, ctx) {
-    const b = el.querySelector('#lj-busca');
-    if (b) b.oninput = () => {
-      busca = b.value;
-      const q = busca.trim().toLowerCase();
-      el.querySelectorAll('[data-filtro]').forEach((c) => (c.hidden = q && !c.dataset.filtro.includes(q)));
-    };
-    ligarFormularios(el, ctx);
-    b?.dispatchEvent(new Event('input'));
-    el.querySelector('input[name=codigo]')?.focus();
-  },
+  montar: (el, ctx) => ligar(el, ctx),
 };
 
 const pendencias = {
   titulo: () => 'Pendências',
   render(ctx) {
-    const itens = ctx.itens.filter(temPendencia).sort((a, b) => a.marca.localeCompare(b.marca) || a.ref.localeCompare(b.ref));
-    return html`<p class="muted" style="margin:0 0 16px">Calçados que estão sem fotos completas. Envie o código se tiver e conte ao escritório o que falta.</p>
-      ${itens.length ? html`<section class="painel"><ul class="lista cascata">${itens.map((i, j) => linhaCodigo(i, j, true))}</ul></section>`
-        : vazioBloco('feito', 'Nenhuma pendência', 'Está tudo certo com as fotos.')}`;
+    const comCodigo = ctx.itens.filter(pendenteComCodigo).sort(ordenar);
+    const semCodigo = ctx.itens.filter(pendenteSemCodigo).sort(ordenar);
+    const todos = [...semCodigo, ...comCodigo];
+    if (!todos.length) return vazioBloco('feito', 'Nenhuma pendência', 'Todos os modelos estão com código e fotos em dia.');
+    const secao = (titulo, texto, its, resposta) => its.length ? html`
+      <h2 class="secao-titulo pend-titulo">${titulo} <span>${its.length}</span></h2><p class="muted" style="margin:-6px 0 12px">${texto}</p>
+      ${blocos(its, resposta)}` : '';
+    return html`<div class="loja-intro"><h1>Pendências para resolver</h1><p class="muted">Modelos sem fotos completas. Envie o código quando tiver e avise o escritório sobre as fotos.</p></div>
+      ${barraFiltros(todos)}
+      ${secao('Sem código e sem fotos', 'Envie o código e conte o que falta de fotos.', semCodigo, false)}
+      ${secao('Com código, faltando fotos', 'O código já foi enviado; falta resolver as fotos.', comCodigo, true)}
+      ${nada()}`;
   },
-  montar: (el, ctx) => ligarFormularios(el, ctx),
+  montar: (el, ctx) => ligar(el, ctx),
 };
 
-function ligarFormularios(el, ctx) {
-  el.querySelectorAll('[data-zoom]').forEach((b) => (b.onclick = () => ampliar(b.dataset.zoom)));
+function aplicarFiltro(el) {
+  const q = filtro.q.trim().toLowerCase();
+  let visiveis = 0;
+  el.querySelectorAll('.modelo').forEach((c) => {
+    const ok = (!filtro.marca || c.dataset.marca === filtro.marca) && (!q || c.dataset.busca.includes(q));
+    c.hidden = !ok;
+    if (ok) visiveis++;
+  });
+  el.querySelectorAll('.grupo-loja').forEach((g) => (g.hidden = !g.querySelector('.modelo:not([hidden])')));
+  el.querySelectorAll('.pend-titulo').forEach((t) => {
+    const grupos = t.nextElementSibling?.nextElementSibling;
+    const vazio = grupos && !grupos.querySelector('.modelo:not([hidden])');
+    t.hidden = vazio; t.nextElementSibling.hidden = vazio;
+  });
+  el.querySelectorAll('.chip').forEach((b) => b.setAttribute('aria-pressed', b.dataset.marca === filtro.marca));
+  const nada = el.querySelector('#lj-nada');
+  if (nada) nada.hidden = visiveis > 0;
+}
+
+function ligar(el, ctx) {
+  el.querySelectorAll('[data-zoom]').forEach((b) => (b.onclick = () => {
+    const i = ctx.itens.find((x) => x.id === b.dataset.zoom);
+    if (i) ampliar(i.fotos, 0, `${i.marca} · ${i.ref}${i.modelo ? ' · ' + i.modelo : ''}`);
+  }));
+  if (filtro.marca && !el.querySelector(`.chip[data-marca="${CSS.escape(filtro.marca)}"]`)) filtro.marca = '';
+  el.querySelectorAll('.chip').forEach((b) => (b.onclick = () => { filtro.marca = b.dataset.marca; aplicarFiltro(el); }));
+  const busca = el.querySelector('#lj-busca');
+  if (busca) busca.oninput = () => { filtro.q = busca.value; aplicarFiltro(el); };
+  aplicarFiltro(el);
+
   el.querySelectorAll('[data-form]').forEach((form) => (form.onsubmit = async (e) => {
     e.preventDefault();
     const id = form.dataset.form;
     const item = ctx.itens.find((x) => x.id === id);
     const codigo = form.codigo?.value.trim() || '';
     const obs = form.obs.value.trim();
-    if (!codigo && !obs) { (form.codigo || form.obs).focus(); return aviso('Digite o código', 'Ou escreva uma observação para o escritório.', 'erro'); }
+    if (!codigo && !obs) {
+      (form.codigo || form.obs).focus();
+      return aviso(form.codigo ? 'Digite o código' : 'Escreva a observação', form.codigo ? 'Ou escreva uma observação para o escritório.' : '', 'erro');
+    }
     const mudancas = {};
     if (codigo) Object.assign(mudancas, { codigo, status: 'respondido', respondidoEm: Date.now() });
     if (obs) mudancas.notaPainel = obs;
     if (form.faltam?.checked) mudancas.statusFotos = 'faltam';
-    const li = form.closest('li');
-    const proximo = li.nextElementSibling?.querySelector('input[name=codigo]');
-    form.querySelectorAll('button, input, textarea').forEach((x) => (x.disabled = true));
+
+    const card = form.closest('.modelo');
+    const grupo = card.closest('.grupo-loja');
+    // Próxima referência da MESMA marca
+    const daMarca = [...grupo.querySelectorAll('.modelo:not([hidden])')];
+    const proximo = daMarca.slice(daMarca.indexOf(card) + 1).find((c) => c.querySelector('input[name=codigo]'))?.querySelector('input[name=codigo]');
+    const campos = form.querySelectorAll('button, input, textarea');
+    campos.forEach((x) => (x.disabled = true));
     await ctx.segurando(async () => {
       try {
         await ctx.alterar(id, mudancas);
-        li.classList.add('enviado');
-        li.querySelector('.item-titulo').insertAdjacentHTML('beforeend', '<span class="marca-ok" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>');
-        proximo?.focus();
-        aviso(codigo ? 'Código enviado' : 'Resposta enviada', `${item.marca} · ${item.ref}${codigo ? ' → ' + codigo : ''}`);
-        if (codigo || mudancas.statusFotos) await recolher(li);
+        card.classList.add('enviado');
+        card.querySelector('header .linha-flex').insertAdjacentHTML('beforeend', '<span class="marca-ok" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>');
+        aviso(codigo ? 'Código enviado' : 'Observação enviada', `${item.marca} · ${item.ref}${codigo ? ' → ' + codigo : ''}`);
+        if (codigo) {
+          const suave = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+          const cont = grupo.querySelector('[data-restam]');
+          const restam = Number(cont.dataset.restam) - 1;
+          cont.dataset.restam = restam;
+          cont.textContent = restam ? `faltam ${qtd(restam)}` : 'concluída';
+          if (proximo) {
+            proximo.focus({ preventScroll: true });
+            proximo.closest('.modelo').scrollIntoView({ behavior: suave, block: 'center' });
+            await recolher(card);
+          } else if (!restam) {
+            // Marca concluída: recolhe o bloco e volta para o início da loja
+            await recolher(card);
+            aviso(`${item.marca} concluída`, 'Todas as referências desta marca foram enviadas.');
+            await recolher(grupo);
+            scrollTo(0, 0);
+          } else {
+            await recolher(card);
+          }
+        } else {
+          campos.forEach((x) => (x.disabled = false));
+          form.obs.value = '';
+        }
       } catch (err) {
-        form.querySelectorAll('button, input, textarea').forEach((x) => (x.disabled = false));
+        campos.forEach((x) => (x.disabled = false));
         erro(err);
       }
     });

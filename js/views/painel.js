@@ -1,6 +1,6 @@
 import { html, icone, contar, tempo, semMovimento } from '../ui.js';
-import { aguardandoCodigo, codigoPronto, temPendencia, finalizado, faltaAtacado, ativo } from '../regras.js';
-import { selo } from '../componentes.js';
+import { aguardandoCodigo, semCodigo, codigoPronto, temPendencia, finalizado, faltaAtacado, ativo } from '../regras.js';
+import { selo, codigoCopiavel } from '../componentes.js';
 
 const DIA = 864e5;
 const semanaDe = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.getTime(); };
@@ -26,7 +26,7 @@ function dados(itens) {
   return {
     kpis: [
       { rot: 'Códigos para processar', n: itens.filter(codigoPronto).length, rota: 'recebidos', ic: 'sino', destaque: true, sub: 'prontos para finalizar' },
-      { rot: 'Aguardando código', n: itens.filter(aguardandoCodigo).length, rota: 'aguardando', ic: 'relogio', sub: 'com a loja' },
+      { rot: 'Aguardando código', n: itens.filter(semCodigo).length, rota: 'aguardando', ic: 'relogio', sub: 'enviados à loja' },
       { rot: 'Pendências de fotos', n: itens.filter(temPendencia).length, rota: 'pendencias', ic: 'alerta', sub: 'precisam de atenção' },
       { rot: 'Finalizados em 30 dias', n: itens.filter((i) => finalizado(i) && agora - new Date(i.feitoEm) < 30 * DIA).length, rota: 'finalizados', ic: 'feito', sub: `${itens.filter(faltaAtacado).length} faltando atacado` },
       { rot: 'Tempo até o código', n: media === null ? null : media, rota: 'aguardando', ic: 'relogio', sub: 'média em dias (90 dias)', dec: true },
@@ -63,7 +63,7 @@ export default {
         <ul class="lista atividade">${d.atividade.map((i) => html`
           <li data-abrir="${i.id}" data-id="${i.id}" class="clicavel" tabindex="0" style="cursor:pointer">
             <b class="mono">${i.marca} · ${i.ref}</b>${selo(i)}
-            ${i.codigo ? html`<span class="codigo">${i.codigo}</span>` : ''}
+            ${codigoCopiavel(i.codigo)}
             <time datetime="${i.atualizado}">${tempo(i.atualizado)}</time></li>`)}</ul></section>`;
   },
 

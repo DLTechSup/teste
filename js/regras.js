@@ -95,6 +95,7 @@ export function lerItem(row) {
     id: row.id,
     marca,
     ref,
+    modelo: (doc.modelo || doc.descricao || '').toString().trim(),
     codigo,
     etapa,
     fotos,
@@ -126,6 +127,7 @@ export function temPendencia(item) {
 }
 
 export const ativo = (i) => !i.arquivado;
+export const semCodigo = (i) => ativo(i) && i.etapa === 'aguardando';
 export const aguardandoCodigo = (i) => ativo(i) && i.etapa === 'aguardando' && !temPendencia(i);
 export const codigoPronto = (i) => ativo(i) && i.etapa === 'recebido' && !temPendencia(i);
 export const pendenteComCodigo = (i) => temPendencia(i) && Boolean(i.codigo);

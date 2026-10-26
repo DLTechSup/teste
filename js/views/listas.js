@@ -1,9 +1,10 @@
 // Telas de lista do administrador
 import { html, raw, icone, aviso, erro, recolher, imprimir, tempo, dataBR } from '../ui.js';
-import { codigoPronto, aguardandoCodigo, pendenteComCodigo, pendenteSemCodigo, finalizado, faltaAtacado, porMarca, buscar } from '../regras.js';
+import { codigoPronto, semCodigo, temPendencia, pendenteComCodigo, pendenteSemCodigo, finalizado, faltaAtacado, porMarca, buscar } from '../regras.js';
 import { linhaItem, grupos, vazioBloco, relatorio, miniatura } from '../componentes.js';
 
-const filtros = {}; // busca e aba de cada tela, mantidas ao navegar
+const filtros = {};
+const porRef = (a, b) => a.marca.localeCompare(b.marca, 'pt-BR') || a.ref.localeCompare(b.ref, 'pt-BR'); // busca e aba de cada tela, mantidas ao navegar
 
 function barra(id, { abas, imprimir: imp } = {}) {
   const f = filtros[id] ||= { q: '', aba: abas?.[0]?.[0] };
@@ -54,12 +55,13 @@ const abrirComum = (el, ctx) => el.addEventListener('abrir', (e) => ctx.abrirIte
 
 const recebidos = {
   titulo: () => 'Códigos recebidos',
-  render: () => barra('recebidos'),
+  render: () => barra('recebidos', { imprimir: true }),
   montar(el, ctx) {
     abrirComum(el, ctx);
     ligar(el, 'recebidos', (f) => grupos(porMarca(buscar(ctx.itens.filter(codigoPronto), f.q)),
       (i, j) => linhaItem(i, { i: j, acoes: html`<button class="btn ok peq" data-feito="${i.id}">${icone('feito')} Feito</button>` }),
-      { vazio: vazioBloco('sino', 'Nenhum código para processar', 'Quando a loja enviar um código, ele aparece aqui na hora.') }));
+      { vazio: vazioBloco('sino', 'Nenhum código para processar', 'Quando a loja enviar um código, ele aparece aqui na hora.') }),
+    () => imprimir(relatorio('Códigos recebidos', [['Prontos para finalizar', ctx.itens.filter(codigoPronto).sort(porRef)]])));
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-feito]');
       if (b) { const i = ctx.itens.find((x) => x.id === b.dataset.feito); acaoSaida(ctx, b, b.dataset.feito, { status: 'feito', feitoEm: Date.now() }, ['Finalizado', `${i.marca} · ${i.ref}`]); }
@@ -69,12 +71,21 @@ const recebidos = {
 
 const aguardando = {
   titulo: () => 'Aguardando código',
-  render: () => barra('aguardando'),
+  render: (ctx) => {
+    const it = ctx.itens.filter(semCodigo);
+    return html`<p class="muted" style="margin:0 0 16px">Tudo o que você enviou à loja e ainda não recebeu código.</p>${barra('aguardando', { imprimir: true, abas: [
+      ['todos', 'Todos enviados', it.length],
+      ['com-foto', 'Com fotos', it.filter((i) => !temPendencia(i)).length],
+      ['sem-foto', 'Sem fotos completas', it.filter(temPendencia).length],
+    ] })}`;
+  },
   montar(el, ctx) {
     abrirComum(el, ctx);
-    ligar(el, 'aguardando', (f) => grupos(porMarca(buscar(ctx.itens.filter(aguardandoCodigo), f.q)),
-      (i, j) => linhaItem(i, { i: j, acoes: html`<span class="muted" style="font-size:12px" title="Cadastrado em ${dataBR(i.criadoEm)}">esperando ${tempo(i.criadoEm).replace('há ', '')}</span>` }),
-      { vazio: vazioBloco('relogio', 'Nada esperando código', 'Tudo que foi enviado à loja já tem código.') }));
+    const filtrar = (aba) => ctx.itens.filter(semCodigo).filter((i) => (aba === 'com-foto' ? !temPendencia(i) : aba === 'sem-foto' ? temPendencia(i) : true));
+    ligar(el, 'aguardando', (f) => grupos(porMarca(buscar(filtrar(f.aba), f.q)),
+      (i, j) => linhaItem(i, { i: j, acoes: html`<span class="muted" style="font-size:12px" title="Enviado em ${dataBR(i.criadoEm)}">esperando ${tempo(i.criadoEm).replace('há ', '')}</span>` }),
+      { vazio: vazioBloco('relogio', 'Nada esperando código', 'Tudo que foi enviado à loja já tem código.') }),
+    () => imprimir(relatorio('Aguardando código da loja', [['Enviados à loja sem código', filtrar(filtros.aguardando.aba).sort(porRef)]])));
   },
 };
 
@@ -124,7 +135,7 @@ const finalizados = {
       const it = lista(f);
       if (!it.length) return vazioBloco('feito', 'Nada por aqui', f.aba === 'todos' ? 'Nenhum item finalizado ainda.' : 'Tudo enviado. 👏');
       const chip = (i, campo, rot) => html`<button class="btn peq ${i[campo] ? '' : 'fant'}" data-alternar="${campo}" data-id="${i.id}" aria-pressed="${i[campo]}" title="${i[campo] ? 'Enviado' : 'Não enviado'} — clique para alterar">${i[campo] ? icone('feito') : raw('<span style="width:18px;text-align:center">○</span>')}${rot}</button>`;
-      return html`<section class="painel"><ul class="lista cascata">${it.slice(0, limite).map((i, j) => linhaItem(i, { i: j, mostrarMarca: true, acoes: html`${chip(i, 'site', 'Site')}${chip(i, 'atacado', 'Atacado')}` }))}</ul>
+      return html`<section class="painel"><ul class="lista cascata">${it.slice(0, limite).map((i, j) => linhaItem(i, { i: j, acoes: html`${chip(i, 'site', 'Site')}${chip(i, 'atacado', 'Atacado')}` }))}</ul>
         ${it.length > limite ? html`<div class="painel-corpo" style="text-align:center"><button class="btn" data-mais>Mostrar mais (${it.length - limite} restantes)</button></div>` : ''}</section>`;
     }, () => imprimir(relatorio('Finalizados — falta atacado', [['Falta atacado', ctx.itens.filter(faltaAtacado)], ['Falta site', ctx.itens.filter((i) => finalizado(i) && !i.site)]])));
     el.addEventListener('click', async (e) => {
@@ -153,7 +164,7 @@ const arquivados = {
     ligar(el, 'arquivados', (f) => {
       const it = buscar(ctx.itens.filter((i) => i.arquivado), f.q);
       if (!it.length) return vazioBloco('arquivo', 'Nenhum item arquivado', 'Itens arquivados aparecem aqui.');
-      return html`<section class="painel"><ul class="lista cascata">${it.map((i, j) => linhaItem(i, { i: j, mostrarMarca: true, acoes: html`<button class="btn peq" data-restaurar="${i.id}">${icone('restaurar')} Restaurar</button>` }))}</ul></section>`;
+      return html`<section class="painel"><ul class="lista cascata">${it.map((i, j) => linhaItem(i, { i: j, acoes: html`<button class="btn peq" data-restaurar="${i.id}">${icone('restaurar')} Restaurar</button>` }))}</ul></section>`;
     });
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-restaurar]');

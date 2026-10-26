@@ -12,7 +12,8 @@ export function criarBanco() {
     const { data, error } = await sb.from('perfis').select('*').eq('id', user.id).maybeSingle();
     if (error) throw new Error('Não foi possível ler seu perfil. Execute o sql/setup.sql no Supabase.');
     if (!data) throw new Error('Seu usuário ainda não tem perfil. Execute o sql/setup.sql no Supabase.');
-    if (!data.ativo) throw new Error('Seu acesso está desativado. Fale com o administrador.');
+    if (!data.ativo) throw new Error('Seu acesso está desativado.');
+    if (data.papel !== 'admin') throw new Error('Este usuário não tem acesso à administração.');
     return data;
   }
 
@@ -22,7 +23,8 @@ export function criarBanco() {
     async sessao() {
       const { data } = await sb.auth.getSession();
       const user = data.session?.user;
-      return user ? { user, perfil: await perfilDe(user) } : null;
+      if (!user) return null;
+      try { return { user, perfil: await perfilDe(user) }; } catch { await sb.auth.signOut(); return null; }
     },
 
     async entrar(email, senha) {

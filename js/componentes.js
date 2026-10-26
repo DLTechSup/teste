@@ -10,29 +10,38 @@ export function selo(item) {
   return html`<span class="selo wait">Aguardando código</span>`;
 }
 
+// Código em destaque: clicar copia (tratado globalmente em app.js)
+export const codigoCopiavel = (codigo) => codigo
+  ? html`<button type="button" class="codigo copiar" data-copiar="${codigo}" title="Clique para copiar" aria-label="Copiar código ${codigo}">${codigo}${icone('copiar')}</button>`
+  : '';
+
 export const miniatura = (item, classe = 'thumb') =>
   item.foto
-    ? html`<span class="${classe}"><img src="${item.foto}" alt="Foto ${item.marca} ${item.ref}" loading="lazy"></span>`
+    ? html`<button type="button" class="${classe} thumb-zoom" data-ver-fotos="${item.id}" aria-label="Ver foto de ${item.marca} ${item.ref}"><img src="${item.foto}" alt="" loading="lazy"></button>`
     : html`<span class="${classe}" title="Sem foto">${icone('foto', 'Sem foto')}</span>`;
 
 // Linha de item clicável (abre o editor). `acoes` = HTML de botões à direita.
-export function linhaItem(item, { acoes = '', mostrarMarca = false, i = 0 } = {}) {
-  return html`<li class="item clicavel" data-abrir="${item.id}" data-id="${item.id}" style="--i:${i}" tabindex="0">
-    ${miniatura(item)}
+export function linhaItem(item, { acoes = '', i = 0, grande = true } = {}) {
+  return html`<li class="item clicavel ${grande ? 'item-grande' : ''}" data-abrir="${item.id}" data-id="${item.id}" style="--i:${i}" tabindex="0">
+    ${grande && !item.foto ? html`<span class="thumb sem-foto-adm">${icone('foto')}<small>Sem foto</small></span>` : miniatura(item)}
     <div class="item-info">
+      <span class="modelo-marca">${item.marca}</span>
       <div class="item-titulo">
-        <b>${mostrarMarca ? `${item.marca} · ` : ''}${item.ref}</b>
-        ${item.codigo ? html`<span class="codigo" title="Código">${item.codigo}</span>` : ''}
+        <b>${item.ref}</b>
+        ${item.modelo ? html`<span class="item-modelo">${item.modelo}</span>` : ''}
+        ${codigoCopiavel(item.codigo)}
         ${selo(item)}
+        ${item.preco ? html`<span class="preco" title="Valor no Bling">${reais(item.preco)}</span>` : ''}
       </div>
       <div class="item-meta">
         <span>Cadastro ${dataBR(item.criadoEm)}</span>
         ${item.respondidoEm ? html`<span>Código ${tempo(item.respondidoEm)}</span>` : ''}
-        ${item.preco ? html`<span>Bling ${reais(item.preco)}</span>` : ''}
+
         ${item.faltamCores ? html`<span>Faltam: ${item.faltamCores}</span>` : ''}
       </div>
       ${item.obs ? html`<div class="item-nota" title="${item.obs}">${item.obs}</div>` : ''}
       ${item.obsLoja ? html`<div class="item-nota loja" title="${item.obsLoja}">Loja: ${item.obsLoja}</div>` : ''}
+      ${grande && item.fotos.length > 1 ? html`<div class="mais-fotos">${item.fotos.slice(1, 6).map((f, k) => html`<button type="button" class="thumb thumb-zoom" data-ver-fotos="${item.id}" data-pos="${k + 1}" aria-label="Ver foto ${k + 2}"><img src="${f}" alt="" loading="lazy"></button>`)}</div>` : ''}
     </div>
     <div class="item-acoes">${acoes}</div>
   </li>`;
@@ -74,7 +83,8 @@ export function abrirEditor(item, ctx) {
       <div class="grade g2">
         <label class="campo"><span>Marca</span><input class="inp" name="marca" value="${item.marca}" required></label>
         <label class="campo"><span>Referência</span><input class="inp mono" name="ref" value="${item.ref}" required></label>
-        <label class="campo"><span>Código</span><input class="inp mono" name="codigo" value="${item.codigo}" placeholder="Ainda não recebido"></label>
+        <label class="campo" style="grid-column:1/-1"><span>Modelo</span><input class="inp" name="modelo" value="${item.modelo}" placeholder="Ex.: Sandália salto bloco"></label>
+        <label class="campo"><span>Código ${item.codigo ? codigoCopiavel(item.codigo) : ''}</span><input class="inp mono" name="codigo" value="${item.codigo}" placeholder="Ainda não recebido"></label>
         <label class="campo"><span>Valor no Bling (R$)</span><input class="inp" name="preco" inputmode="decimal" value="${item.preco ? item.preco.toFixed(2).replace('.', ',') : ''}"></label>
         <label class="campo"><span>Situação das fotos</span><select class="inp" name="statusFotos">${opcoesFotos}</select></label>
         <label class="campo"><span>Cores que faltam</span><input class="inp" name="faltamCores" value="${item.faltamCores}"></label>
@@ -100,7 +110,7 @@ export function abrirEditor(item, ctx) {
   caixa.setAttribute('aria-labelledby', 'ed-tit');
 
   const foto = caixa.querySelector('#ed-foto');
-  foto && (foto.onclick = () => ampliar(fotoAtual));
+  foto && (foto.onclick = () => ampliar(item.fotos, item.fotos.indexOf(fotoAtual), `${item.marca} · ${item.ref}`));
   caixa.querySelectorAll('[data-foto]').forEach((b) => (b.onclick = () => {
     fotoAtual = b.dataset.foto; foto.src = fotoAtual;
     caixa.querySelectorAll('[data-foto]').forEach((x) => x.setAttribute('aria-current', x === b));
@@ -125,6 +135,7 @@ export function abrirEditor(item, ctx) {
     const mudancas = {
       marca: f.get('marca').toString().trim().toUpperCase(),
       ref: f.get('ref').toString().trim(),
+      modelo: f.get('modelo').toString().trim(),
       codigo,
       preco: precoTxt ? parseFloat(precoTxt.replace(/\./g, '').replace(',', '.')) || null : null,
       statusFotos: f.get('statusFotos'),
@@ -161,7 +172,9 @@ export function abrirEditor(item, ctx) {
 
 // ---------- Relatório para impressão ----------
 export function relatorio(titulo, secoes) {
-  const linhas = (itens) => itens.map((i) => `<tr><td>${esc(i.marca)}</td><td>${esc(i.ref)}</td><td>${esc(i.codigo || '—')}</td><td>${esc(STATUS_FOTOS[i.statusFotos])}</td><td>${esc(i.faltamCores || '')}</td><td>${esc([i.obs, i.obsLoja && 'Loja: ' + i.obsLoja].filter(Boolean).join(' · '))}</td></tr>`).join('');
-  return raw(`<h1>${esc(titulo)}</h1><div>Gerado em ${new Date().toLocaleString('pt-BR')}</div>` +
-    secoes.map(([nome, itens]) => `<h2>${esc(nome)} (${itens.length})</h2><table><thead><tr><th>Marca</th><th>Referência</th><th>Código</th><th>Fotos</th><th>Cores</th><th>Observações</th></tr></thead><tbody>${linhas(itens)}</tbody></table>`).join(''));
+  const foto = (i) => (i.foto ? `<img src="${esc(i.foto)}" alt="">` : '<span class="sem">sem foto</span>');
+  const linhas = (itens) => itens.map((i) => `<tr><td class="foto">${foto(i)}</td><td><b>${esc(i.marca)}</b></td><td>${esc(i.modelo || '—')}</td><td class="ref">${esc(i.ref)}</td><td class="ref">${esc(i.codigo || '—')}</td><td>${esc(STATUS_FOTOS[i.statusFotos])}${i.faltamCores ? `<br><small>Faltam: ${esc(i.faltamCores)}</small>` : ''}</td><td>${esc([i.obs, i.obsLoja && 'Loja: ' + i.obsLoja].filter(Boolean).join(' · '))}</td></tr>`).join('');
+  const total = secoes.reduce((n, [, its]) => n + its.length, 0);
+  return raw(`<h1>${esc(titulo)}</h1><div>Gerado em ${new Date().toLocaleString('pt-BR')} · ${total} ${total === 1 ? 'item' : 'itens'}</div>` +
+    secoes.map(([nome, itens]) => `<h2>${esc(nome)} (${itens.length})</h2><table><thead><tr><th>Foto</th><th>Marca</th><th>Modelo</th><th>Referência</th><th>Código</th><th>Fotos</th><th>Observações</th></tr></thead><tbody>${linhas(itens)}</tbody></table>`).join(''));
 }

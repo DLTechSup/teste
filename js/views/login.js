@@ -1,11 +1,10 @@
-import { html, raw } from '../ui.js';
-import { NOME_LOJA } from '../config.js';
+import { html, raw, icone, logo } from '../ui.js';
 
 export default {
   render(ctx) {
     return html`<div class="login">
       <section class="login-arte" aria-hidden="true">
-        <div class="marca-app" style="padding:0"><span class="logo" style="background:var(--bg);color:var(--ink)">SF</span><div><b>ShoeFlow</b><small style="color:inherit;opacity:.6">${NOME_LOJA}</small></div></div>
+        <div>${logo('invertido grande')}</div>
         <div>
           <h1>Do cadastro ao site, sem perder nenhuma referência.</h1>
           <p>Escritório cadastra, a loja envia o código, o escritório finaliza. Tudo sincronizado ao vivo.</p>
@@ -14,12 +13,12 @@ export default {
       </section>
       <section class="login-form">
         <form id="f-login" novalidate>
-          <div><h2>Entrar</h2><p class="muted" style="margin:4px 0 0">Use o e-mail e a senha que o administrador criou para você.</p></div>
+          <a class="btn fant peq" href="#/loja" style="align-self:flex-start">${icone('voltar')} Voltar para a loja</a>
+          <div><h2>Administração</h2><p class="muted" style="margin:4px 0 0">Área restrita. Entre com seu e-mail e senha de administrador.</p></div>
           ${ctx.demo
             ? html`<div class="grade">
-                <button class="btn pri" type="button" data-demo="admin@demo">Entrar como administrador</button>
-                <button class="btn" type="button" data-demo="loja@demo">Entrar como loja</button>
-                <p class="muted" style="font-size:12px;margin:0">Demonstração: escolha um perfil para ver cada lado do sistema.</p></div>`
+                <button class="btn pri" type="button" data-demo="admin@demo">Entrar como administrador (demonstração)</button>
+                <p class="muted" style="font-size:12px;margin:0">No sistema real aqui ficam os campos de e-mail e senha.</p></div>`
             : html`<label class="campo"><span>E-mail</span><input class="inp" type="email" name="email" autocomplete="username" required autofocus></label>
                 <label class="campo"><span>Senha</span><input class="inp" type="password" name="senha" autocomplete="current-password" required></label>
                 <p class="erro-txt" id="erro-login" role="alert" hidden></p>

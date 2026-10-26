@@ -11,7 +11,7 @@ function filaHTML(fila) {
   return html`<ul class="lista cascata">${fila.map((f, i) => html`
     <li class="item" data-fila="${f.tmp}" style="--i:${i}">
       ${f.fotos[0] ? html`<span class="thumb"><img src="${f.fotos[0]}" alt=""></span>` : html`<span class="thumb">${icone('foto')}</span>`}
-      <div class="item-info"><div class="item-titulo"><b>${f.marca} · ${f.ref}</b></div>
+      <div class="item-info"><div class="item-titulo"><b>${f.marca} · ${f.ref}</b>${f.modelo ? html`<span class="item-modelo">${f.modelo}</span>` : ''}</div>
         <div class="item-meta"><span>${STATUS_FOTOS[f.statusFotos]}</span>${f.preco ? html`<span>${reais(f.preco)}</span>` : ''}${f.faltamCores ? html`<span>Faltam: ${f.faltamCores}</span>` : ''}</div>
         ${f.obs ? html`<div class="item-nota">${f.obs}</div>` : ''}</div>
       <div class="item-acoes"><button class="btn fant peq ico" data-tirar="${f.tmp}" aria-label="Tirar ${f.ref} da fila">${icone('x')}</button></div>
@@ -32,6 +32,7 @@ export default {
             <label class="campo"><span>Marca *</span><input class="inp" name="marca" list="lista-marcas" value="${ultimaMarca}" required autocomplete="off"></label>
             <label class="campo"><span>Referência *</span><input class="inp mono" name="ref" required autocomplete="off" placeholder="8320-100"></label>
           </div>
+          <label class="campo"><span>Modelo</span><input class="inp" name="modelo" autocomplete="off" placeholder="Ex.: Sandália salto bloco"></label>
           <datalist id="lista-marcas">${marcas.map((m) => html`<option value="${m}">`)}</datalist>
           <p class="erro-txt" id="dup" hidden></p>
           <div class="campo"><span>Foto</span>
@@ -39,6 +40,7 @@ export default {
               ${icone('upload')}<div><b>Arraste, clique ou cole (Ctrl+V)</b></div><small>JPG, PNG ou WEBP · reduzida automaticamente</small>
             </div><input type="file" accept="image/*" id="arq" class="sr" tabindex="-1"></div>
           <fieldset class="campo" style="border:0;padding:0;margin:0"><legend style="font-size:13px;font-weight:500;margin-bottom:6px">Situação das fotos</legend>
+            <small style="display:block;margin-bottom:6px">Sem todas as fotos, o modelo vai para as Pendências da loja.</small>
             <div class="situacoes">${Object.entries(STATUS_FOTOS).map(([v, t], k) => html`<label><input type="radio" name="statusFotos" value="${v}" ${k === 0 ? raw('checked') : ''}>${t}</label>`)}</div></fieldset>
           <label class="campo" id="campo-cores" hidden><span>Cores que faltam</span><input class="inp" name="faltamCores" placeholder="Preto, Off white"></label>
           <label class="campo"><span>Valor no Bling (R$)</span><input class="inp" name="preco" inputmode="decimal" placeholder="Opcional"></label>
@@ -102,7 +104,7 @@ export default {
         const preco = parseFloat((d.get('preco') || '').replace(/\./g, '').replace(',', '.'));
         const statusFotos = fotos.length || d.get('statusFotos') !== 'completas' ? d.get('statusFotos') : 'nenhuma';
         const item = {
-          tmp: crypto.randomUUID(), marca, ref, fotos, statusFotos,
+          tmp: crypto.randomUUID(), marca, ref, modelo: d.get('modelo').trim(), fotos, statusFotos,
           faltamCores: statusFotos === 'faltam' ? d.get('faltamCores').trim() : '',
           preco: preco > 0 ? preco : null, obs: d.get('obs').trim(),
           sentToSite: d.has('site'), sentToAtacado: d.has('atacado'),
@@ -110,7 +112,7 @@ export default {
         gravarFila([item, ...lerFila()]);
         ultimaMarca = marca;
         aviso('Adicionado à fila', `${marca} · ${ref}`);
-        f.ref.value = ''; f.obs.value = ''; f.preco.value = ''; foto = null;
+        f.ref.value = ''; f.obs.value = ''; f.modelo.value = ''; f.preco.value = ''; foto = null;
         solta.innerHTML = String(html`${icone('upload')}<div><b>Arraste, clique ou cole (Ctrl+V)</b></div><small>JPG, PNG ou WEBP · reduzida automaticamente</small>`);
         el.querySelector('#fila').innerHTML = String(filaHTML(lerFila()));
         el.querySelector('.painel-cab .n').textContent = lerFila().length;

@@ -28,7 +28,8 @@ function gerar() {
       n++;
       const dias = (n * 37) % 40;
       const criado = agora - dias * 864e5 - n * 36e5;
-      const doc = { marca, ref, fotos: [fotoFicticia(ref, n)], criado, cadastradoEm: criado, obs: '', nota: '', preco: 79.9 + (n % 9) * 20 };
+      const MODELOS = ['Sandália salto bloco', 'Tênis casual', 'Rasteira tressê', 'Scarpin bico fino', 'Mule', 'Bota cano curto'];
+      const doc = { marca, ref, modelo: MODELOS[n % MODELOS.length], fotos: [fotoFicticia(ref, n)], criado, cadastradoEm: criado, obs: '', nota: '', preco: 79.9 + (n % 9) * 20 };
       const tipo = n % 7;
       if (tipo === 0 || tipo === 3 || tipo === 5) {
         Object.assign(doc, { status: 'feito', codigo: String(40000 + n * 13), respondidoEm: criado + (1 + (n % 4)) * 864e5, feitoEm: criado + (2 + (n % 4)) * 864e5, sentToSite: true });
@@ -42,6 +43,14 @@ function gerar() {
       linhas.push({ id: 'demo-' + n, doc, atualizado: new Date(criado).toISOString() });
     }
   }
+  // Lotes recentes aguardando código, para mostrar o agrupamento por marca na loja
+  const lotes = { MOLECA: ['5809-101', '5809-102', '5809-104', '5791-210', '5791-212'], DAKOTA: ['G9801', 'G9802', 'G9805'], 'BEIRA RIO': ['4271-801', '4271-802'] };
+  for (const [marca, refs] of Object.entries(lotes)) refs.forEach((ref) => {
+    n++;
+    const criado = agora - (n % 3) * 36e5;
+    const fotos = [fotoFicticia(ref, n), fotoFicticia(ref + ' lado', n + 2), fotoFicticia(ref + ' sola', n + 4)].slice(0, 1 + (n % 3));
+    linhas.push({ id: 'demo-' + n, doc: { marca, ref, modelo: ['Tênis casual', 'Sandália salto bloco', 'Mule', 'Rasteira tressê'][n % 4], fotos, criado, cadastradoEm: criado, status: 'pendente', obs: n % 4 === 0 ? 'Numeração 34 ao 39' : '' }, atualizado: new Date(criado).toISOString() });
+  });
   linhas.push({ id: 'demo-arq', doc: { marca: 'MODARE', ref: '7000.100', status: 'excluido', deletado: true, fotos: [] }, atualizado: new Date(agora - 20 * 864e5).toISOString() });
   return linhas;
 }
@@ -59,7 +68,7 @@ export function criarBancoDemo() {
 
   // Simula a loja enviando um código de tempos em tempos
   setInterval(() => {
-    if (!sessao || sessao.perfil.papel !== 'admin') return;
+    if (!sessao) return;
     const l = linhas.find((x) => x.doc.status === 'pendente' && x.doc.fotos.length);
     if (!l) return;
     Object.assign(l.doc, { status: 'respondido', codigo: String(50000 + Math.floor(Math.random() * 9999)), respondidoEm: Date.now(), atualizadoPor: 'Loja Centro' });
