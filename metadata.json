@@ -1,6 +1,0 @@
-{
-  "name": "ShoeFlow SaaS - Gestão de Calçados & Equipes Remotas",
-  "description": "SaaS para gestão ágil de fluxos de trabalho em calçados: cadastro de produtos, coleta remota de códigos, controle de fotos, pendências, lembretes de atacado e relatórios em PDF.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
