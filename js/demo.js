@@ -61,6 +61,16 @@ function gerar() {
     Object.assign(i, { codigo: String(46000 + k * 37), respondidoEm: t - (k + 1) * 5 * H, feitoEm: t - k * 4 * H - (k > 2 ? D : 0), enviadoSite: true, enviadoAtacado: true });
     itens.push(i);
   });
+  // ?demo&muitas: muitas marcas com pendência, para ver o filtro com bastante coisa
+  if (new URLSearchParams(location.search).has('muitas')) {
+    const ms = ['AREZZO', 'BEIRA RIO', 'DAKOTA', 'IMPROVISO', 'MOLECA', 'MOLEKINHO', 'PICCADILLY', 'RAMARIM', 'USAFLEX', 'VIZZANO', 'BOTTERO', 'COMFORTFLEX', 'KOLOSH', 'MODARE', 'OLYMPIKUS', 'ACTVITTA', "MARIA'S SHOES", 'BEBECE'];
+    for (let k = 0; k < 40; k++) {
+      const m = ms[k % ms.length], ref = `${1000 + k * 7}.${100 + k}`;
+      const i = novoItem({ marca: m, ref, status: k % 3 ? 'pendente' : 'respondido', origem: 'lista', motivoFoto: ['Somente foto de capa', 'Não tenho fotos', 'Foto de baixa qualidade'][k % 3], fotos: k % 4 ? [foto(ref, k)] : [] });
+      if (i.status === 'respondido') Object.assign(i, { codigo: String(60000 + k), respondidoEm: t - k * H });
+      itens.push(i);
+    }
+  }
   // Rascunho do admin
   itens.push(Object.assign(novoItem({ marca: 'DAKOTA', ref: 'G9801', fotos: [foto('G9801', 6)], valores: ['189,90'] }), { status: 'rascunho' }));
   return itens;
@@ -74,6 +84,16 @@ export function criarBancoDemo() {
   let perfis = [{ id: 'p1', usuario: 'danilolira', papel: 'admin' }];
   let sessao = null;
   const espera = (ms = 120) => new Promise((r) => setTimeout(r, ms));
+
+  // Simula o escritório respondendo um código (a cada 30 s, só com o painel aberto)
+  const simular = () => {
+    const i = itens.find((x) => x.status === 'pendente' && !x.arquivado && !(x.motivoFoto && x.motivoFoto !== 'Já tenho as fotos'));
+    if (!i) return;
+    Object.assign(i, mudar.enviarCodigo(String(70000 + Math.floor(Math.random() * 9999)), Math.random() < 0.4 ? 'só tem do 35 ao 38' : ''));
+    avisar(i);
+  };
+  window.__simularCodigo = simular;
+  setInterval(() => { if (sessao && location.hash !== '#/esc' && !location.hash.startsWith('#/esc')) simular(); }, 30000);
 
   return {
     demo: true,

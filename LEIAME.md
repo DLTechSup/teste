@@ -25,8 +25,7 @@ O que um faz, o outro vê ao vivo.
 ## Escritório (página aberta, sem senha)
 - Produtos **agrupados por marca**, com **foto grande** (clique para ampliar e ver todas) e **campo de código em destaque**.
 - Digita o código e aperta **Enter** → aparece **"Confira antes de enviar"** com a foto e o código → **Enter** de novo envia e já vai para a próxima referência da mesma marca.
-- **Não sei o código**: devolve para o painel.
-- Alerta fixo de **pendências de fotos** (sem código e sem foto / com código, faltando foto) e botão **Já enviei as fotos**.
+- Alerta fixo de **pendências de fotos** (sem código e sem foto / com código, faltando foto).
 - Aviso de **produtos novos**, avisos no navegador (botão "Ativar avisos") e contador na aba.
 - Quando tudo é respondido, grava o **"Tudo preenchido"** (o mesmo registro do site atual).
 - **Já no site**: os últimos produtos finalizados, com foto e código.

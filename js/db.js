@@ -4,14 +4,26 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, DOMINIO_EMAIL } from './config.js';
 import { uid } from './regras.js';
 
 const limpaUser = (u) => (u || '').trim().toLowerCase().replace(/\s+/g, '');
-const emailDe = (u) => `${limpaUser(u)}@${DOMINIO_EMAIL}`;
+// Aceita só o usuário (como no site original) ou o e-mail completo
+const emailDe = (u) => (limpaUser(u).includes('@') ? limpaUser(u) : `${limpaUser(u)}@${DOMINIO_EMAIL}`);
+
+// Traduz o erro real do Supabase em vez de esconder a causa
+function motivo(error) {
+  const m = (error?.message || '').toLowerCase();
+  if (m.includes('invalid login credentials')) return 'Usuário ou senha incorretos.';
+  if (m.includes('email not confirmed')) return 'Este usuário ainda não foi confirmado no Supabase (Authentication → Users).';
+  if (m.includes('failed to fetch') || m.includes('network')) return 'Sem conexão com o servidor do Supabase. Verifique a internet.';
+  if (m.includes('rate limit') || m.includes('too many')) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.';
+  return 'Não foi possível entrar: ' + (error?.message || 'erro desconhecido');
+}
 const docDe = (r) => ({ ...(r.doc || {}), id: (r.doc && r.doc.id) || r.id });
 
 export function criarBanco() {
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   async function perfilDe(user) {
-    const { data } = await sb.from('perfis').select('id,usuario,papel').eq('id', user.id).maybeSingle();
+    const { data, error } = await sb.from('perfis').select('id,usuario,papel').eq('id', user.id).maybeSingle();
+    if (error) throw new Error('Login certo, mas não consegui ler seu perfil: ' + error.message);
     return data || null;
   }
 
@@ -29,7 +41,7 @@ export function criarBanco() {
 
     async entrar(usuario, senha) {
       const { data, error } = await sb.auth.signInWithPassword({ email: emailDe(usuario), password: senha });
-      if (error) throw new Error('Usuário ou senha incorretos.');
+      if (error) throw new Error(motivo(error));
       const perfil = await perfilDe(data.user);
       if (!perfil) { await sb.auth.signOut(); throw new Error('Este usuário não tem acesso liberado.'); }
       return { user: data.user, perfil };

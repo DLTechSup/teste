@@ -50,17 +50,15 @@ function cartao(i, n, modo) {
       ${i.notaPainel ? html`<p class="nota-recado"><b>Recado:</b> ${i.notaPainel}</p>` : ''}
       ${i.nota ? html`<p class="nota-escritorio"><b>Observação:</b> ${i.nota}</p>` : ''}
       ${i.conferidoNaoRecebido ? html`<p class="nota-recado forte"><b>As fotos ainda não chegaram.</b> Confira e envie de novo.</p>` : ''}
-      <form class="modelo-form" data-form="${i.id}" novalidate>
-        ${precisaCodigo ? html`<label class="campo campo-codigo"><span>Código das fotos</span>
-          <input class="inp mono codigo-grande" name="codigo" autocomplete="off" autocapitalize="characters" enterkeyhint="send" placeholder="Digite o código"></label>` : ''}
-        <label class="campo ${precisaCodigo ? '' : 'largo'}"><span>Observação <small>(opcional)</small></span>
+      ${!precisaCodigo ? html`<p class="info-pend">Código já enviado. Falta só a foto deste modelo chegar ao painel.</p>` : html`<form class="modelo-form" data-form="${i.id}" novalidate>
+        <label class="campo campo-codigo"><span>Código das fotos</span>
+          <input class="inp mono codigo-grande" name="codigo" autocomplete="off" autocapitalize="characters" enterkeyhint="send" placeholder="Digite o código"></label>
+        <label class="campo"><span>Observação <small>(opcional)</small></span>
           <textarea class="inp" name="obs" rows="2" placeholder="Ex.: só tem numeração 34 a 37"></textarea></label>
         <div class="modelo-rodape">
-          ${modo === 'codigo' ? html`<button type="button" class="btn fant" data-naosei="${i.id}">${icone('ajuda')} Não sei o código</button>` : ''}
-          ${modo === 'pend' ? html`<button type="button" class="btn" data-jaenviei="${i.id}">${icone('enviar')} Já enviei as fotos</button>` : ''}
-          ${precisaCodigo ? html`<button class="btn pri" type="submit">${icone('enviar')} Enviar código</button>` : ''}
+          <button class="btn pri" type="submit">${icone('enviar')} Enviar código</button>
         </div>
-      </form>
+      </form>`}
     </div>
   </article>`;
 }
@@ -78,11 +76,15 @@ function blocos(itens, modo) {
 function barraFiltros(itens) {
   const m = R.porMarca(itens);
   return html`<div class="loja-filtros">
-    <div class="chips" role="group" aria-label="Filtrar por marca">
+    <div class="filtros-topo">
+      <span class="filtros-rot">${icone('lista')} Responder por marca <small class="muted">(${m.size} ${m.size === 1 ? 'marca' : 'marcas'})</small></span>
+      <label class="busca">${icone('busca')}<span class="sr">Buscar referência</span><input class="inp" type="search" id="lj-busca" value="${filtro.q}" placeholder="Buscar referência"></label>
+    </div>
+    <div class="chips ${filtro.abertas ? 'abertas' : ''}" id="chips" role="group" aria-label="Filtrar por marca">
       <button class="chip" data-chip="" aria-pressed="${!filtro.marca}">Todas <span>${itens.length}</span></button>
       ${[...m].map(([k, l]) => html`<button class="chip" data-chip="${k}" aria-pressed="${filtro.marca === k}">${k} <span>${l.length}</span></button>`)}
     </div>
-    <label class="busca">${icone('busca')}<span class="sr">Buscar referência</span><input class="inp" type="search" id="lj-busca" value="${filtro.q}" placeholder="Buscar referência"></label>
+    <button type="button" class="btn fant peq ver-marcas" id="ver-marcas" hidden aria-expanded="${Boolean(filtro.abertas)}" aria-controls="chips"></button>
   </div>`;
 }
 
@@ -112,9 +114,9 @@ const pendencias = {
     if (!todos.length) return vazio('feito', 'Nenhuma pendência de fotos', 'Está tudo certo com as fotos.');
     const secao = (t, s, l, modo) => (l.length ? html`<h2 class="secao-titulo pend-titulo">${t} <span>${l.length}</span></h2><p class="muted" style="margin:-6px 0 12px">${s}</p>${blocos(l, modo)}` : '');
     return html`${alertas(ctx, 'esc-pendencias')}
-      <div class="loja-intro"><h1>Pendências de fotos</h1><p class="muted">Produtos que precisam de foto. Mande o código quando tiver e avise quando enviar as fotos.</p></div>
+      <div class="loja-intro"><h1>Pendências de fotos</h1><p class="muted">Produtos que precisam de foto. Mande o código dos que ainda não têm e envie as fotos direto para o painel.</p></div>
       ${barraFiltros(todos)}
-      ${secao('Sem código e sem foto', 'Digite o código e envie as fotos.', sem, 'pend')}
+      ${secao('Sem código e sem foto', 'Digite o código. As fotos vão direto para o painel.', sem, 'pend')}
       <div style="height:24px"></div>
       ${secao('Com código, faltando foto', 'O código já foi enviado. Falta só a foto para ir ao site.', com, 'pend')}`;
   },
@@ -177,7 +179,27 @@ function conferir(i, codigo, obs) {
 function ligar(el, ctx, modo) {
   // Filtros
   if (filtro.marca && !el.querySelector(`.chip[data-chip="${CSS.escape(filtro.marca)}"]`)) filtro.marca = '';
-  el.querySelectorAll('.chip').forEach((b) => (b.onclick = () => { filtro.marca = b.dataset.chip; aplicarFiltro(el); }));
+  el.querySelectorAll('.chip').forEach((b) => (b.onclick = () => {
+    filtro.marca = b.dataset.chip;
+    aplicarFiltro(el);
+    el.querySelector('.grupos-loja')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
+  // Muitas marcas: mostra 2 linhas e um botão para ver todas
+  const chips = el.querySelector('#chips'), ver = el.querySelector('#ver-marcas');
+  if (chips && ver) {
+    const texto = () => (ver.innerHTML = String(html`${icone(filtro.abertas ? 'voltar' : 'seta')} ${filtro.abertas ? 'Mostrar menos marcas' : `Ver todas as marcas (${chips.children.length - 1})`}`));
+    requestAnimationFrame(() => {
+      const sobra = chips.scrollHeight > chips.clientHeight + 4 || filtro.abertas;
+      ver.hidden = !sobra;
+      texto();
+    });
+    ver.onclick = () => {
+      filtro.abertas = !filtro.abertas;
+      chips.classList.toggle('abertas', filtro.abertas);
+      ver.setAttribute('aria-expanded', filtro.abertas);
+      texto();
+    };
+  }
   const busca = el.querySelector('#lj-busca');
   if (busca) busca.oninput = () => { filtro.q = busca.value; aplicarFiltro(el); };
   aplicarFiltro(el);
@@ -213,7 +235,7 @@ function ligar(el, ctx, modo) {
     const i = ctx.item(form.dataset.form);
     const card = form.closest('.modelo');
     const codigo = form.codigo?.value.trim() || '';
-    if (!codigo) { form.codigo?.focus(); return aviso('Digite o código', 'Ou use "Não sei o código".', 'erro'); }
+    if (!codigo) { form.codigo?.focus(); return aviso('Digite o código', '', 'erro'); }
     const r = await conferir(i, codigo.toUpperCase(), form.obs.value.trim());
     if (!r) return form.codigo.focus();
     await ctx.segurando(async () => {
@@ -227,29 +249,6 @@ function ligar(el, ctx, modo) {
     });
   }));
 
-  el.querySelectorAll('[data-naosei]').forEach((b) => (b.onclick = async () => {
-    const card = b.closest('.modelo'), i = ctx.item(b.dataset.naosei);
-    await ctx.segurando(async () => {
-      try {
-        await ctx.alterar(i.id, R.mudar.naoSei(card.querySelector('textarea').value));
-        aviso('Marcado como "não sei"', `${i.marca} ${i.ref} voltou para o painel`);
-        await concluido(card, i);
-      } catch (err) { erro(err); }
-    });
-  }));
-
-  el.querySelectorAll('[data-jaenviei]').forEach((b) => (b.onclick = async () => {
-    const card = b.closest('.modelo'), i = ctx.item(b.dataset.jaenviei);
-    const obs = card.querySelector('textarea').value.trim();
-    await ctx.segurando(async () => {
-      try {
-        await ctx.alterar(i.id, { ...R.mudar.jaEnviei(), ...(obs ? { obs } : {}) });
-        aviso('Fotos marcadas como enviadas', 'O painel vai confirmar quando receber.');
-        card.classList.add('enviado');
-        await recolher(card);
-      } catch (err) { erro(err); }
-    });
-  }));
 }
 
 export default { esperando, pendencias, noSite, ampliar };

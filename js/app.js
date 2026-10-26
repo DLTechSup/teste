@@ -2,6 +2,7 @@
 import * as R from './regras.js';
 import { html, raw, icone, logo, aviso, erro, bip, ampliar } from './ui.js';
 import { abrirEditor } from './componentes.js';
+import { mostrarCodigo } from './chegadas.js';
 import { NOME_PUBLICO } from './config.js';
 import escritorio from './views/escritorio.js';
 import login from './views/login.js';
@@ -70,17 +71,25 @@ const ctx = {
 };
 
 // ---------- Tempo real: avisos com som ----------
-function notificar(msg) {
-  try { if ('Notification' in window && Notification.permission === 'granted') new Notification('Calçados 24h', { body: msg, tag: 'codigos-fotos' }); } catch { /* ok */ }
+// Aviso do sistema (aparece mesmo com o navegador minimizado, se os avisos estiverem ativados)
+function notificar(msg, titulo = 'Calçados 24h', fixo = false) {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const n = new Notification(titulo, { body: msg, tag: 'codigos-fotos-' + Date.now(), requireInteraction: fixo, icon: 'img/logo.png' });
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch { /* ok */ }
 }
+let naoVistos = 0;
+const tituloBase = () => (noPainel() ? 'Meu painel — Códigos das Fotos' : 'Códigos das Fotos');
 function aoItem(d, idRemovido) {
   if (!d) { est.itens.delete(idRemovido); return pedirRender(); }
   const antes = est.itens.get(d.id);
   est.itens.set(d.id, d);
   if (noPainel() && est.sessao && d.status === 'respondido' && antes?.status !== 'respondido') {
-    const msg = `Novo código: ${d.marca} ${d.ref} → ${d.codigo}`;
-    aviso('Código recebido', msg, 'sino', 8000); bip(); notificar(msg);
-    document.title = '● Código recebido — Códigos das Fotos';
+    mostrarCodigo(d, { abrir: (id) => ctx.abrirItem(id) });
+    bip();
+    notificar(`${d.marca} ${d.ref} → código ${d.codigo}`, 'Código recebido', true);
+    if (document.hidden || !document.hasFocus()) { naoVistos++; document.title = `● (${naoVistos}) ${naoVistos === 1 ? 'código novo' : 'códigos novos'} — Códigos das Fotos`; }
   } else if (!noPainel()) {
     if (d.status === 'pendente' && antes?.status !== 'pendente' && !R.pendFoto(d)) { aviso('Novo produto esperando código', `${d.marca} ${d.ref}`, 'sino'); bip(); notificar('Novo produto esperando código'); }
     else if (d.status === 'feito' && antes && antes.status !== 'feito') { aviso('Já está no site', `${d.marca} ${d.ref}`, 'sino'); }
@@ -151,7 +160,10 @@ function molduraAdm(rota, corpo) {
     </aside>
     <main class="main">${demoFaixa()}${offline()}
       <header class="topo"><button class="btn fant ico menu-btn" data-menu aria-label="Abrir menu" aria-expanded="${est.menu}">${icone('menu')}</button>
-        <h1>${rota.tela.titulo?.(ctx) || rota.titulo}</h1><span class="espaco"></span>${aoVivo()}</header>
+        <h1>${rota.tela.titulo?.(ctx) || rota.titulo}</h1><span class="espaco"></span>
+        ${'Notification' in window && Notification.permission === 'default' ? html`<button class="btn peq" data-avisos title="Receber aviso do sistema quando chegar código, mesmo com o navegador minimizado">${icone('sino')}<span class="txt">Ativar avisos</span></button>` : ''}
+        ${'Notification' in window && Notification.permission === 'denied' ? html`<span class="muted aviso-bloq" style="font-size:12px" title="Libere as notificações deste site nas configurações do navegador">Avisos do sistema bloqueados</span>` : ''}
+        ${aoVivo()}</header>
       <div class="conteudo" id="conteudo">${corpo}</div>
     </main></div>`;
 }
@@ -202,7 +214,7 @@ function ligarMoldura() {
   raiz.querySelector('[data-recarregar]')?.addEventListener('click', carregar);
   raiz.querySelector('[data-avisos]')?.addEventListener('click', async () => {
     const p = await Notification.requestPermission();
-    if (p === 'granted') notificar('Avisos ativados. Você será avisado quando chegar produto novo.');
+    if (p === 'granted') notificar(noPainel() ? 'Avisos ativados. Você será avisado quando chegar código.' : 'Avisos ativados. Você será avisado quando chegar produto novo.');
     render();
   });
   if (!noPainel()) return;
@@ -268,7 +280,7 @@ async function iniciar() {
   raiz = document.getElementById('app');
   ligarGlobais();
   addEventListener('hashchange', () => { est.menu = false; render(); });
-  addEventListener('focus', () => { if (noPainel()) document.title = 'Meu painel — Códigos das Fotos'; });
+  addEventListener('focus', () => { naoVistos = 0; document.title = tituloBase(); });
   addEventListener('online', () => { est.online = true; render(); });
   addEventListener('offline', () => { est.online = false; render(); });
   // Rede de segurança: se o tempo real cair, recarrega a cada 2 minutos
